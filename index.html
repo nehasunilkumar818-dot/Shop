@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173b32">
+  <meta name="description" content="Grocery shop billing and cash counter">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Grocery Billing">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Grocery Shop Billing</title>
+<style>
+:root{--green:#173b32;--green2:#245b49;--bg:#f4f7f5;--line:#dce5df;--muted:#65736b;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px system-ui,-apple-system,Segoe UI,sans-serif;color:#17231d}
+header{background:var(--green);color:white;padding:18px 16px}
+header h1{font-size:21px;margin:0 0 3px}header p{margin:0;color:#d9e8df;font-size:13px}
+main{max-width:1050px;margin:18px auto;padding:0 13px 35px;display:grid;gap:15px;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr)}
+.card{background:white;border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:0 2px 9px #153b2b0a}
+h2{font-size:17px;margin:0 0 13px}.muted{color:var(--muted);font-size:13px}
+label{display:block;font-size:13px;font-weight:650;margin:0 0 6px}
+input,select{width:100%;border:1px solid #cbd7cf;border-radius:9px;padding:11px 10px;font:inherit;background:white;min-width:0}
+input:focus,select:focus{outline:2px solid #8bb9a2;border-color:var(--green2)}
+.fields{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}
+button{border:0;border-radius:9px;padding:11px 14px;font:600 14px system-ui;cursor:pointer}
+.primary{background:var(--green2);color:white}.secondary{background:#edf3ef;color:var(--green)}.danger{background:#fff0ee;color:var(--red)}
+.full{width:100%;margin-top:12px}
+.tablewrap{overflow-x:auto;margin-top:14px}
+table{width:100%;border-collapse:collapse;min-width:440px}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #edf1ee;font-size:13px}th{color:var(--muted);font-weight:650}
+td.num,th.num{text-align:right}.itemname{font-weight:650}.smallbtn{padding:6px 9px;font-size:12px}
+.totalbox{background:#f0f6f2;border-radius:12px;padding:14px;margin-top:14px}
+.totalrow{display:flex;justify-content:space-between;gap:12px;padding:5px 0}.grand{font-size:22px;font-weight:800;color:var(--green)}
+.stack{display:grid;gap:11px}.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.change{font-size:28px;font-weight:800;color:var(--green)}.warning{color:var(--red);font-size:13px;font-weight:650}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.actions button{flex:1}
+.historyrow{border-bottom:1px solid #edf1ee;padding:10px 0;font-size:13px}
+.historyrow:last-child{border:0}
+.empty{padding:18px 5px;text-align:center;color:var(--muted);font-size:13px}
+.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:12px}
+@media(max-width:760px){main{grid-template-columns:1fr;margin-top:12px}.fields{grid-template-columns:1fr 1fr}.fields .namefield{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><h1>Grocery Shop Billing</h1><p>Quick billing · Cash received · Change to return</p></header>
+<main>
+<section class="card">
+  <h2>1. Add items to this bill</h2>
+  <div class="fields">
+    <div class="namefield"><label for="product">Product name</label><input id="product" list="productOptions" placeholder="e.g. Rice, Onion, Ginger"><datalist id="productOptions"></datalist></div>
+    <div><label for="price">Price per unit (₹)</label><input id="price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    <div><label for="qty">Quantity</label><input id="qty" type="number" min="0.001" step="any" value="1"></div>
+  </div>
+  <button class="primary full" id="addItem">Add item to bill</button>
+  <div class="tablewrap">
+    <table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th><th></th></tr></thead><tbody id="cartRows"></tbody></table>
+    <div id="emptyCart" class="empty">No items added yet. Add the first product above.</div>
+  </div>
+  <div class="totalbox">
+    <div class="totalrow"><span>Subtotal</span><strong id="subtotal">₹0.00</strong></div>
+    <div class="totalrow"><label for="discount" style="margin:0">Discount (₹)</label><input id="discount" type="number" min="0" step="0.01" value="0" style="max-width:125px;padding:6px 8px;text-align:right"></div>
+    <div class="totalrow grand"><span>Total</span><span id="grandTotal">₹0.00</span></div>
+  </div>
+  <p class="note">Enter each product's selling price and quantity. You can add the same product again or choose a saved product name from suggestions.</p>
+</section>
+<aside class="stack">
+  <section class="card">
+    <h2>2. Payment and change</h2>
+    <div class="stack">
+      <div><label for="payment">Payment method</label><select id="payment"><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option></select></div>
+      <div><label for="received">Cash received (₹)</label><input id="received" type="number" min="0" step="0.01" placeholder="Enter amount customer gives"></div>
+      <div class="totalbox">
+        <div class="muted" id="changeLabel">CHANGE TO RETURN</div>
+        <div class="change" id="change">₹0.00</div>
+        <div class="muted" id="paymentMessage">Enter the amount received.</div>
+      </div>
+      <button class="primary full" id="complete">Complete sale & save bill</button>
+      <button class="secondary full" id="newBill">Clear current bill</button>
+    </div>
+  </section>
+  <section class="card">
+    <h2>3. Product price list</h2>
+    <p class="muted">Save frequently sold products and their prices on this device.</p>
+    <div class="stack">
+      <div><label for="saveName">Product name</label><input id="saveName" placeholder="e.g. Green chilli"></div>
+      <div class="split">
+        <div><label for="savePrice">Price (₹)</label><input id="savePrice" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label for="unit">Unit</label><select id="unit"><option>kg</option><option>500 g</option><option>250 g</option><option>100 g</option><option>piece</option><option>packet</option><option>litre</option></select></div>
+      </div>
+      <button class="secondary" id="saveProduct">Save / update product</button>
+    </div>
+    <div id="productList" class="note">No saved products yet.</div>
+  </section>
+  <section class="card">
+    <h2>4. Recent sales</h2>
+    <div id="history"><div class="empty">Completed bills will appear here.</div></div>
+    <button class="secondary full" id="export">Download sales as CSV</button>
+  </section>
+</aside>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>'₹'+Number(n||0).toFixed(2);
+const load=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
+let products=load('grocery_products',[]);
+let cart=[];
+let sales=load('grocery_sales',[]);
+let billNo=Number(load('grocery_billno',1));
+const save=()=>{localStorage.setItem('grocery_products',JSON.stringify(products));localStorage.setItem('grocery_sales',JSON.stringify(sales));localStorage.setItem('grocery_billno',String(billNo))};
+function total(){let sub=cart.reduce((s,x)=>s+x.price*x.qty,0);let discount=Math.max(0,Number($('discount').value)||0);return {sub,discount,total:Math.max(0,sub-discount)}}
+function render(){
+ $('cartRows').innerHTML=cart.map((x,i)=>`<tr><td class="itemname">${escapeHtml(x.name)}</td><td class="num">${x.qty}</td><td class="num">${money(x.price)}</td><td class="num">${money(x.price*x.qty)}</td><td><button class="danger smallbtn" data-remove="${i}" aria-label="Remove ${escapeHtml(x.name)}">×</button></td></tr>`).join('');
+ $('emptyCart').style.display=cart.length?'none':'block';
+ $('subtotal').textContent=money(total().sub);$('grandTotal').textContent=money(total().total);
+ $('cartRows').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{cart.splice(Number(b.dataset.remove),1);render()});
+ const list=$('productList');
+ list.innerHTML=products.length?products.map((p,i)=>`<div class="historyrow"><strong>${escapeHtml(p.name)}</strong> — ${money(p.price)} / ${escapeHtml(p.unit)} <button class="danger smallbtn" data-delprod="${i}" style="float:right">Delete</button></div>`).join(''):'No saved products yet.';
+ list.querySelectorAll('[data-delprod]').forEach(b=>b.onclick=()=>{products.splice(Number(b.dataset.delprod),1);save();render()});
+ $('productOptions').innerHTML=products.map(p=>`<option value="${escapeAttr(p.name)}"></option>`).join('');
+ $('history').innerHTML=sales.length?sales.slice(0,8).map(s=>`<div class="historyrow"><strong>Bill #${s.id}</strong> · ${escapeHtml(s.date)}<br>${s.count} item line(s) · ${s.method} · <strong>${money(s.total)}</strong></div>`).join(''):'<div class="empty">Completed bills will appear here.</div>';
+ updateChange();
+}
+function updateChange(){
+ const t=total().total,method=$('payment').value,received=Number($('received').value)||0;
+ if(method!=='Cash'){$('changeLabel').textContent='PAYMENT';$('change').textContent='—';$('paymentMessage').textContent='Record the sale after receiving UPI/card payment.';return}
+ $('changeLabel').textContent=received>=t?'CHANGE TO RETURN':'AMOUNT STILL DUE';
+ $('change').textContent=money(Math.abs(received-t));
+ $('paymentMessage').textContent=received>=t?'Return this amount to the customer.':(received>0?'Customer needs to pay this much more.':'Enter the amount received.');
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function escapeAttr(s){return escapeHtml(s)}
+$('addItem').onclick=()=>{
+ const name=$('product').value.trim(),price=Number($('price').value),qty=Number($('qty').value);
+ if(!name||$('price').value===''||!Number.isFinite(price)||price<0||!Number.isFinite(qty)||qty<=0){alert('Enter a product name, a valid price and a quantity greater than zero.');return}
+ cart.push({name,price,qty});$('product').value='';$('price').value='';$('qty').value='1';$('product').focus();render();
+};
+$('saveProduct').onclick=()=>{
+ const name=$('saveName').value.trim(),price=Number($('savePrice').value),unit=$('unit').value;
+ if(!name||$('savePrice').value===''||!Number.isFinite(price)||price<0){alert('Enter a product name and a valid price.');return}
+ const i=products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+ if(i>=0)products[i]={name,price,unit};else products.push({name,price,unit});
+ save();$('saveName').value='';$('savePrice').value='';render();
+};
+$('product').addEventListener('change',()=>{
+ const p=products.find(x=>x.name.toLowerCase()===$('product').value.trim().toLowerCase());
+ if(p){$('price').value=p.price;$('qty').value=1}
+});
+$('discount').oninput=()=>{render()};
+$('received').oninput=updateChange;$('payment').onchange=updateChange;
+$('newBill').onclick=()=>{if(cart.length&&!confirm('Clear the current bill?'))return;cart=[];$('discount').value=0;$('received').value='';$('payment').value='Cash';render()};
+$('complete').onclick=()=>{
+ const t=total().total,method=$('payment').value,received=Number($('received').value)||0;
+ if(!cart.length){alert('Add at least one item before completing the sale.');return}
+ if(method==='Cash'&&received<t){alert('The amount received is less than the bill total. Collect the remaining amount first.');return}
+ const sale={id:billNo++,date:new Date().toLocaleString(),count:cart.length,total:t,method,items:cart.map(x=>({...x})),discount:total().discount,received:method==='Cash'?received:null,change:method==='Cash'?received-t:0};
+ sales.unshift(sale);save();
+ const lines=[`GROCERY SHOP`,`Bill #${sale.id}`,sale.date,'----------------------',...sale.items.map(x=>`${x.name}  ${x.qty} x ${money(x.price)} = ${money(x.qty*x.price)}`),'----------------------',`Subtotal: ${money(total().sub)}`,`Discount: ${money(sale.discount)}`,`TOTAL: ${money(sale.total)}`,`Payment: ${sale.method}`,...(method==='Cash'?[`Received: ${money(received)}`,`Change: ${money(received-t)}`]:[])];
+ alert('Sale saved successfully.\\n\\n'+lines.join('\\n'));
+ cart=[];$('discount').value=0;$('received').value='';$('payment').value='Cash';render();
+};
+$('export').onclick=()=>{
+ if(!sales.length){alert('There are no saved sales to export yet.');return}
+ const rows=[['Bill No','Date','Items','Subtotal','Discount','Total','Payment','Received','Change']];
+ sales.slice().reverse().forEach(s=>rows.push([s.id,s.date,s.items.map(x=>`${x.name} (${x.qty})`).join('; '),s.items.reduce((a,x)=>a+x.price*x.qty,0),s.discount,s.total,s.method,s.received??'',s.change]));
+ const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\\r\\n');
+ const a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.href=url;a.download='grocery-sales.csv';a.click();URL.revokeObjectURL(url);
+};
+render();
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
